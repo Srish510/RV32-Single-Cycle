@@ -1,0 +1,120 @@
+#! /c/Source/iverilog-install/bin/vvp
+:ivl_version "14.0 (devel)";
+:ivl_delay_selection "TYPICAL";
+:vpi_time_precision - 12;
+:vpi_module "C:\Users\SRISHD~1\scoop\apps\iverilog\current\lib\ivl\system.vpi";
+:vpi_module "C:\Users\SRISHD~1\scoop\apps\iverilog\current\lib\ivl\vhdl_sys.vpi";
+:vpi_module "C:\Users\SRISHD~1\scoop\apps\iverilog\current\lib\ivl\vhdl_textio.vpi";
+:vpi_module "C:\Users\SRISHD~1\scoop\apps\iverilog\current\lib\ivl\v2005_math.vpi";
+:vpi_module "C:\Users\SRISHD~1\scoop\apps\iverilog\current\lib\ivl\va_math.vpi";
+:vpi_module "C:\Users\SRISHD~1\scoop\apps\iverilog\current\lib\ivl\v2009.vpi";
+S_000002CC3A431B70 .scope package, "$unit" "$unit" 2 1;
+ .timescale 0 0;
+S_000002CC3A403310 .scope module, "register_file" "register_file" 3 3;
+ .timescale -9 -12;
+    .port_info 0 /INPUT 1 "clk";
+    .port_info 1 /INPUT 5 "rs1";
+    .port_info 2 /INPUT 5 "rs2";
+    .port_info 3 /INPUT 5 "rd";
+    .port_info 4 /INPUT 32 "write_data";
+    .port_info 5 /INPUT 1 "write_enable";
+    .port_info 6 /OUTPUT 32 "read_data1";
+    .port_info 7 /OUTPUT 32 "read_data2";
+L_000002CC3A690088 .functor BUFT 1, C4<00000>, C4<0>, C4<0>, C4<0>;
+v000002CC3A42D960_0 .net/2u *"_ivl_0", 4 0, L_000002CC3A690088;  1 drivers
+L_000002CC3A690118 .functor BUFT 1, C4<00>, C4<0>, C4<0>, C4<0>;
+v000002CC3A42DFA0_0 .net *"_ivl_11", 1 0, L_000002CC3A690118;  1 drivers
+L_000002CC3A690160 .functor BUFT 1, C4<00000>, C4<0>, C4<0>, C4<0>;
+v000002CC3A42DD20_0 .net/2u *"_ivl_14", 4 0, L_000002CC3A690160;  1 drivers
+v000002CC3A42E180_0 .net *"_ivl_16", 0 0, L_000002CC3A48DE00;  1 drivers
+L_000002CC3A6901A8 .functor BUFT 1, C4<00000000000000000000000000000000>, C4<0>, C4<0>, C4<0>;
+v000002CC3A42D640_0 .net/2u *"_ivl_18", 31 0, L_000002CC3A6901A8;  1 drivers
+v000002CC3A42DA00_0 .net *"_ivl_2", 0 0, L_000002CC3A48CBE0;  1 drivers
+v000002CC3A42DDC0_0 .net *"_ivl_20", 31 0, L_000002CC3A48CAA0;  1 drivers
+v000002CC3A42DE60_0 .net *"_ivl_22", 6 0, L_000002CC3A48E260;  1 drivers
+L_000002CC3A6901F0 .functor BUFT 1, C4<00>, C4<0>, C4<0>, C4<0>;
+v000002CC3A42D6E0_0 .net *"_ivl_25", 1 0, L_000002CC3A6901F0;  1 drivers
+L_000002CC3A6900D0 .functor BUFT 1, C4<00000000000000000000000000000000>, C4<0>, C4<0>, C4<0>;
+v000002CC3A42E040_0 .net/2u *"_ivl_4", 31 0, L_000002CC3A6900D0;  1 drivers
+v000002CC3A42E0E0_0 .net *"_ivl_6", 31 0, L_000002CC3A48DB80;  1 drivers
+v000002CC3A42D280_0 .net *"_ivl_8", 6 0, L_000002CC3A48CDC0;  1 drivers
+o000002CC3A442218 .functor BUFZ 1, c4<z>; HiZ drive
+v000002CC3A42DAA0_0 .net "clk", 0 0, o000002CC3A442218;  0 drivers
+o000002CC3A442248 .functor BUFZ 5, c4<zzzzz>; HiZ drive
+v000002CC3A42D320_0 .net "rd", 4 0, o000002CC3A442248;  0 drivers
+v000002CC3A42D780_0 .net "read_data1", 31 0, L_000002CC3A48CFA0;  1 drivers
+v000002CC3A42D3C0_0 .net "read_data2", 31 0, L_000002CC3A48D680;  1 drivers
+v000002CC3A42D460 .array "registers", 31 0, 31 0;
+o000002CC3A4422D8 .functor BUFZ 5, c4<zzzzz>; HiZ drive
+v000002CC3A42D820_0 .net "rs1", 4 0, o000002CC3A4422D8;  0 drivers
+o000002CC3A442308 .functor BUFZ 5, c4<zzzzz>; HiZ drive
+v000002CC3A42D8C0_0 .net "rs2", 4 0, o000002CC3A442308;  0 drivers
+o000002CC3A442338 .functor BUFZ 32, c4<zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz>; HiZ drive
+v000002CC3A48D5E0_0 .net "write_data", 31 0, o000002CC3A442338;  0 drivers
+o000002CC3A442368 .functor BUFZ 1, c4<z>; HiZ drive
+v000002CC3A48D720_0 .net "write_enable", 0 0, o000002CC3A442368;  0 drivers
+E_000002CC3A42E690 .event posedge, v000002CC3A42DAA0_0;
+L_000002CC3A48CBE0 .cmp/eq 5, o000002CC3A4422D8, L_000002CC3A690088;
+L_000002CC3A48DB80 .array/port v000002CC3A42D460, L_000002CC3A48CDC0;
+L_000002CC3A48CDC0 .concat [ 5 2 0 0], o000002CC3A4422D8, L_000002CC3A690118;
+L_000002CC3A48CFA0 .functor MUXZ 32, L_000002CC3A48DB80, L_000002CC3A6900D0, L_000002CC3A48CBE0, C4<>;
+L_000002CC3A48DE00 .cmp/eq 5, o000002CC3A442308, L_000002CC3A690160;
+L_000002CC3A48CAA0 .array/port v000002CC3A42D460, L_000002CC3A48E260;
+L_000002CC3A48E260 .concat [ 5 2 0 0], o000002CC3A442308, L_000002CC3A6901F0;
+L_000002CC3A48D680 .functor MUXZ 32, L_000002CC3A48CAA0, L_000002CC3A6901A8, L_000002CC3A48DE00, C4<>;
+S_000002CC3A4034A0 .scope module, "cocotb_iverilog_dump" "cocotb_iverilog_dump" 4 1;
+ .timescale -9 -12;
+S_000002CC3A403630 .scope begin, "$unm_blk_3" "$unm_blk_3" 4 2, 4 2 0, S_000002CC3A4034A0;
+ .timescale -9 -12;
+v000002CC3A48DEA0_0 .var/str "dumpfile_path";
+    .scope S_000002CC3A403310;
+T_0 ;
+    %wait E_000002CC3A42E690;
+    %load/vec4 v000002CC3A48D720_0;
+    %flag_set/vec4 9;
+    %flag_get/vec4 9;
+    %jmp/0 T_0.2, 9;
+    %load/vec4 v000002CC3A42D320_0;
+    %pushi/vec4 0, 0, 5;
+    %cmp/ne;
+    %flag_get/vec4 4;
+    %and;
+T_0.2;
+    %flag_set/vec4 8;
+    %jmp/0xz  T_0.0, 8;
+    %load/vec4 v000002CC3A48D5E0_0;
+    %load/vec4 v000002CC3A42D320_0;
+    %pad/u 7;
+    %ix/vec4 3;
+    %ix/load 4, 0, 0; Constant delay
+    %assign/vec4/a/d v000002CC3A42D460, 0, 4;
+T_0.0 ;
+    %jmp T_0;
+    .thread T_0;
+    .scope S_000002CC3A4034A0;
+T_1 ;
+    %fork t_1, S_000002CC3A403630;
+    %jmp t_0;
+    .scope S_000002CC3A403630;
+t_1 ;
+    %vpi_func 4 3 "$value$plusargs" 32, "dumpfile_path=%s", v000002CC3A48DEA0_0 {0 0 0};
+    %cmpi/ne 0, 0, 32;
+    %jmp/0xz  T_1.0, 4;
+    %vpi_call/w 4 4 "$dumpfile", v000002CC3A48DEA0_0 {0 0 0};
+    %jmp T_1.1;
+T_1.0 ;
+    %vpi_call/w 4 6 "$dumpfile", "C:\134Projects\134rv32i_core\134sim\134register_file\134register_file.fst" {0 0 0};
+T_1.1 ;
+    %vpi_call/w 4 8 "$dumpvars", 32'sb00000000000000000000000000000000, S_000002CC3A403310 {0 0 0};
+    %end;
+    .scope S_000002CC3A4034A0;
+t_0 %join;
+    %end;
+    .thread T_1;
+# The file index is used to find the file name in the following table.
+:file_names 5;
+    "N/A";
+    "<interactive>";
+    "-";
+    "C:\Projects\rv32i_core\src\core\register_file.v";
+    "C:\Projects\rv32i_core\sim\register_file\cocotb_iverilog_dump.v";
