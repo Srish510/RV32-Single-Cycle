@@ -43,6 +43,11 @@ The `program_counter.v` holds the current 32-bit execution address. On every clo
 
 *(You can also view the [high-resolution PDF version here](RV32I%20Block%20Diagram.pdf))*
 
+### Synthesized Gate-Level Schematic (Yosys)
+
+![RV32I Yosys Schematic](yosys_schematic.svg)
+
+
 ## RV32I Instruction Encodings
 
 The core's `main_decoder.v` and assembler rely on standard RISC-V opcodes and funct codes. Below are the encodings fully implemented by this core:
