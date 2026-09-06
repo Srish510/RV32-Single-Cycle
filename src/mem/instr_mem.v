@@ -12,9 +12,6 @@ module instr_mem #(
     // 4KB memory (1024 words of 32 bits)
     reg [31:0] memory [0:(1<<ADDR_WIDTH)-1];
 
-    initial begin
-        $readmemh("program.hex", memory);
-    end
 
     // Fetch instruction (assuming byte-addressable read_address)
     assign instruction = memory[read_address[2 +: ADDR_WIDTH]];

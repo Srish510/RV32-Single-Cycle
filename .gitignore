@@ -25,8 +25,9 @@ MANIFEST
 venv/
 .env
 
-# Hardware Simulation
+# Hardware Simulation / Cocotb
 *.out
+sim/rv32i_top_full/
 
 # OS generated files
 .DS_Store
@@ -36,3 +37,7 @@ venv/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# TerosHDL
+teros_project
+.teros/
