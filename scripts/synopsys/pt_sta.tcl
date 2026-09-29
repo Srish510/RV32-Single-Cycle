@@ -1,6 +1,6 @@
 # ==============================================================================
 # Synopsys PrimeTime STA Script
-# Target: rv32i_core
+# Target: rv32i_asic_top
 # ==============================================================================
 
 # 1. Setup Libraries
@@ -9,7 +9,7 @@ set target_library [list NangateOpenCellLibrary_slow.db]
 set synthetic_library [list dw_foundation.sldb]
 set link_library [list * $target_library $synthetic_library]
 
-set DESIGN_NAME "rv32i_core"
+set DESIGN_NAME "rv32i_asic_top"
 set NETLIST_DIR "../../layout"
 set STA_DIR "../../sta"
 

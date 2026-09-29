@@ -1,6 +1,6 @@
 # ==============================================================================
 # Synopsys Design Compiler Synthesis Script
-# Target: rv32i_core
+# Target: rv32i_asic_top
 # ==============================================================================
 
 # 1. Setup Libraries
@@ -9,11 +9,14 @@ set target_library [list NangateOpenCellLibrary_slow.db]
 set synthetic_library [list dw_foundation.sldb]
 set link_library [list * $target_library $synthetic_library]
 
-set DESIGN_NAME "rv32i_core"
+set DESIGN_NAME "rv32i_asic_top"
 set RTL_DIR "../../src/core"
+set WRAPPER_DIR "../../src/wrappers"
 set OUTPUT_DIR "../../layout"
 
 # 2. Read RTL
+# Note: We do NOT read sram_macro_1024x32.v because we want DC to treat 
+# the SRAMs as black boxes to be resolved by the physical design tools.
 set rtl_files [list \
     ${RTL_DIR}/alu.v \
     ${RTL_DIR}/alu_mux.v \
@@ -28,6 +31,7 @@ set rtl_files [list \
     ${RTL_DIR}/register_file.v \
     ${RTL_DIR}/write_back_mux.v \
     ${RTL_DIR}/rv32i_core.v \
+    ${WRAPPER_DIR}/rv32i_asic_top.v \
 ]
 
 read_verilog $rtl_files
