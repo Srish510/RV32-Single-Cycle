@@ -33,7 +33,7 @@ EDGE_CASES = [
     0xAAAAAAAA, # Alternating 10
 ]
 
-def get_test_pairs(num_random=1000):
+def get_test_pairs(num_random=10000):
     pairs = []
 
     ''' Generate edge case pairs'''
