@@ -4,7 +4,8 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
+/env/
+!compliance/**/env/
 build/
 develop-eggs/
 dist/
@@ -28,6 +29,9 @@ venv/
 # Hardware Simulation / Cocotb
 *.out
 sim/rv32i_top_full/
+sim/compliance_build/
+sim/rv32i_compliance/
+riscof_work/
 
 # OS generated files
 .DS_Store

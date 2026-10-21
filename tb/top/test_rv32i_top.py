@@ -18,17 +18,54 @@ def load_hex(dut, filename):
             if line and not line.startswith(("//", "#")):
                 # Support standard Verilog memory hex format (@address)
                 if line.startswith('@'):
-                    # Addresses in Verilog hex files are usually word addresses or byte addresses.
-                    # Assuming byte addresses for RISC-V, we convert to word index.
                     addr = int(line[1:], 16)
-                    idx = addr // 4
+                    idx = (addr & 0x0003FFFF) // 4
                 else:
                     for word in line.split():
                         try:
-                            dut.imem_inst.memory[idx].value = int(word, 16)
+                            if idx < len(dut.imem_inst.memory):
+                                dut.imem_inst.memory[idx].value = int(word, 16)
                             idx += 1
                         except ValueError:
-                            pass # Skip non-hex words just in case
+                            pass
+
+def load_elf(dut, filename):
+    """Loads an ELF file into both instruction and data memories."""
+    from elftools.elf.elffile import ELFFile
+    if not os.path.exists(filename):
+        dut._log.warning(f"ELF file '{filename}' not found.")
+        return {}
+
+    dut._log.info(f"Loading ELF '{filename}' into imem and dmem")
+    symbols = {}
+    with open(filename, 'rb') as f:
+        elf = ELFFile(f)
+        
+        symtab = elf.get_section_by_name('.symtab')
+        if symtab:
+            for sym in symtab.iter_symbols():
+                symbols[sym.name] = sym['st_value']
+                
+        imem_len = len(dut.imem_inst.memory)
+        dmem_len = len(dut.dmem_inst.memory)
+        
+        for segment in elf.iter_segments():
+            if segment['p_type'] == 'PT_LOAD':
+                vaddr = segment['p_vaddr']
+                data = segment.data()
+                for offset in range(0, len(data), 4):
+                    chunk = data[offset:offset+4]
+                    if len(chunk) < 4:
+                        chunk = chunk.ljust(4, b'\x00')
+                    word = int.from_bytes(chunk, byteorder='little')
+                    addr = vaddr + offset
+                    word_idx = (addr & 0x0003FFFF) // 4
+                    if word_idx < imem_len:
+                        dut.imem_inst.memory[word_idx].value = word
+                    if word_idx < dmem_len:
+                        dut.dmem_inst.memory[word_idx].value = word
+                        
+    return symbols
 
 @cocotb.test()
 async def test_full_core(dut):
@@ -37,13 +74,16 @@ async def test_full_core(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
     
-    # 2. Preload instr_mem with compiled machine code (if provided via environment variable)
-    #    You can pass this during invocation: PROG_HEX="my_program.hex" make
+    symbols = {}
+    elf_file = os.getenv("PROG_ELF", "")
     hex_file = os.getenv("PROG_HEX", "")
-    if hex_file:
+    
+    if elf_file:
+        symbols = load_elf(dut, elf_file)
+    elif hex_file:
         load_hex(dut, hex_file)
     else:
-        dut._log.info("No PROG_HEX environment variable set. Running with default empty memory.")
+        dut._log.info("No PROG_ELF or PROG_HEX set. Running with default empty memory.")
     
     # 3. Assert reset for 5 clock cycles, then deassert it
     dut.rst.value = 1
@@ -52,19 +92,16 @@ async def test_full_core(dut):
     dut.rst.value = 0
     
     # 4. Monitor execution to detect program completion
-    # We will detect completion in two ways:
-    # A) A memory write to a specific 'tohost' address
-    # B) A tight infinite loop (PC doesn't change)
-    
-    # Typical address used by RISC-V tests for communication
-    TOHOST_ADDR = 0x80001000 
+    tohost_addr = symbols.get("tohost", None)
+    tohost_set = {0x80001000, 0x00001000}
+    if tohost_addr is not None:
+        tohost_set.add(tohost_addr)
+        
     MAX_CYCLES = 100000
     cycles = 0
     
     while cycles < MAX_CYCLES:
         await RisingEdge(dut.clk)
-        
-        # Read signals after the clock edge has propagated
         await ReadOnly()
         
         try:
@@ -78,16 +115,28 @@ async def test_full_core(dut):
             mem_we = int(dut.core_inst.data_we.value)
             mem_addr = int(dut.core_inst.data_addr.value)
         except ValueError:
-            # If signals are uninitialized (e.g. instruction memory is empty), they contain 'X'
             mem_we = 0
             mem_addr = 0
-
         
-        if mem_we != 0 and mem_addr == TOHOST_ADDR:
+        if mem_we != 0 and mem_addr in tohost_set:
             status = int(dut.core_inst.data_wdata.value)
             dut._log.info(f"Program completed via tohost write to 0x{mem_addr:08X} with status: {status}")
             
-            # Usually, writing 1 to tohost indicates success, and >1 indicates failure code
+            # Dump signature if requested
+            sig_file = os.getenv("SIG_FILE", "")
+            if sig_file and "begin_signature" in symbols and "end_signature" in symbols:
+                begin_sig = symbols["begin_signature"]
+                end_sig = symbols["end_signature"]
+                dut._log.info(f"Dumping signature from 0x{begin_sig:08X} to 0x{end_sig:08X} into '{sig_file}'")
+                with open(sig_file, "w") as sf:
+                    for addr in range(begin_sig, end_sig, 4):
+                        word_idx = (addr & 0x0003FFFF) // 4
+                        try:
+                            val = int(dut.dmem_inst.memory[word_idx].value)
+                        except ValueError:
+                            val = 0
+                        sf.write(f"{val:08x}\n")
+                        
             if status == 1:
                 dut._log.info("Test Passed! (tohost == 1)")
             else:
@@ -95,12 +144,8 @@ async def test_full_core(dut):
             return
             
         # Check for infinite loop (spin lock)
-        # Since exceptions are not implemented, a spin loop (JMP 0, or BEQ x0, x0, 0) 
-        # means the program has intentionally halted.
         if pc == pc_next:
             dut._log.info(f"Program completed via infinite loop at PC = 0x{pc:08X}")
-            
-            # In many riscv-tests, register x3 (gp) holds the test status at the end
             try:
                 gp_status = int(dut.core_inst.reg_file_inst.registers[3].value)
             except ValueError:

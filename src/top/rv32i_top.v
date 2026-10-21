@@ -34,14 +34,14 @@ module rv32i_top (
     );
 
     instr_mem #(
-        .ADDR_WIDTH(10) // 10 bits (4KB) for 1024 words of 32 bits
+        .ADDR_WIDTH(14) // 14 bits (64KB) for 16384 words of 32 bits
     )imem_inst (
         .read_address(instr_addr),
         .instruction(instr_data)
     );
 
     data_mem #(
-        .ADDR_WIDTH(12) // 12 bits (16KB) for 4096 words of 32 bits
+        .ADDR_WIDTH(14) // 14 bits (64KB) for 16384 words of 32 bits
     ) dmem_inst (
         .clk(clk),
         .addr_in(data_addr),

@@ -19,7 +19,7 @@ module data_mem #(
     // Initialize memory to zero to avoid 'x' propagation
     integer i;
     initial begin
-        for (i = 0; i < 1024; i = i + 1) begin
+        for (i = 0; i < (1<<ADDR_WIDTH); i = i + 1) begin
             memory[i] = 32'b0;
         end
     end
