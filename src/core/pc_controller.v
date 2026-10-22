@@ -36,7 +36,7 @@ module pc_controller (
         .branch_pc(branch_pc_wire),
         .pc_incremented(pc_incremented),
         .jal_pc(offset_pc), 
-        .jalr_pc(jalr_pc),
+        .jalr_pc({jalr_pc[31:1], 1'b0}),
         .next_pc_src(next_pc_src),
         .pc_next(next_pc)
     );

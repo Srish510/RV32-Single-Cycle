@@ -97,12 +97,44 @@ async def test_full_core(dut):
     if tohost_addr is not None:
         tohost_set.add(tohost_addr)
         
+    enable_coverage = os.getenv("ENABLE_COVERAGE", "0") == "1"
+    func_collector = None
+    struct_monitor = None
+    if enable_coverage:
+        from tb.coverage.rv32i_functional_coverage import FunctionalCoverageCollector
+        from tb.coverage.structural_coverage import StructuralCoverageMonitor
+        func_collector = FunctionalCoverageCollector()
+        struct_monitor = StructuralCoverageMonitor()
+        
     MAX_CYCLES = 100000
     cycles = 0
     
+    def save_coverage_artifacts():
+        if enable_coverage:
+            cov_yaml = os.getenv("COV_YAML", "")
+            if cov_yaml:
+                from cocotb_coverage.coverage import coverage_db
+                coverage_db.export_to_yaml(cov_yaml)
+            cov_struct = os.getenv("COV_STRUCT_JSON", "")
+            if cov_struct and struct_monitor:
+                struct_monitor.save_json(cov_struct)
+
     while cycles < MAX_CYCLES:
         await RisingEdge(dut.clk)
         await ReadOnly()
+        
+        if enable_coverage:
+            try:
+                instr_val = int(dut.core_inst.instruction.value)
+                pc_val = int(dut.core_inst.pc_out.value)
+                next_pc_val = int(dut.core_inst.next_pc.value)
+                imm_val = int(dut.core_inst.imm_data.value)
+                mem_addr_val = int(dut.core_inst.data_addr.value)
+                mem_rdata_val = int(dut.core_inst.data_rdata.value)
+                func_collector.sample(instr_val, pc_val, next_pc_val, imm_val, mem_addr_val, mem_rdata_val)
+                struct_monitor.sample_cycle(dut)
+            except ValueError:
+                pass
         
         try:
             pc = int(dut.core_inst.pc_out.value)
@@ -137,6 +169,7 @@ async def test_full_core(dut):
                             val = 0
                         sf.write(f"{val:08x}\n")
                         
+            save_coverage_artifacts()
             if status == 1:
                 dut._log.info("Test Passed! (tohost == 1)")
             else:
@@ -146,6 +179,7 @@ async def test_full_core(dut):
         # Check for infinite loop (spin lock)
         if pc == pc_next:
             dut._log.info(f"Program completed via infinite loop at PC = 0x{pc:08X}")
+            save_coverage_artifacts()
             try:
                 gp_status = int(dut.core_inst.reg_file_inst.registers[3].value)
             except ValueError:
@@ -160,4 +194,5 @@ async def test_full_core(dut):
             
         cycles += 1
         
+    save_coverage_artifacts()
     assert False, f"Timeout! Program did not complete within {MAX_CYCLES} cycles."

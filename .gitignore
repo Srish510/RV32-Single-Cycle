@@ -31,6 +31,15 @@ venv/
 sim/rv32i_top_full/
 sim/compliance_build/
 sim/rv32i_compliance/
+sim/coverage/
+sim/coverage_build/
+sim/rv32i_cov_sim/
+sim/verilator_cov/
+sim/test_verilator*/
+sim/test_*.elf
+*.dat
+*.info
+
 riscof_work/
 
 # OS generated files

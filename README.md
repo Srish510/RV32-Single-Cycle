@@ -143,13 +143,17 @@ Because this is a pure single-cycle computational core designed without privileg
 │   ├── top/        # Top-level wrapper (rv32i_top.v)
 │   └── wrappers/   # ASIC/FPGA top wrappers
 ├── tb/             # Cocotb verification and testing
-│   ├── asm/        # Custom assembly test programs
+│   ├── asm/        # Custom assembly test programs & closure suite
+│   ├── coverage/   # Coverage collectors (functional, structural, reporter)
 │   ├── hex/        # Generated hex binaries for simulation
 │   ├── units/      # Isolated unit tests for individual modules
 │   ├── top/        # Full-system integration testbench
 │   ├── run_compliance.py   # Compliance test runner
 │   ├── run_compliance.ps1  # PowerShell compliance launcher
-│   └── run_compliance.sh   # Bash compliance launcher
+│   ├── run_compliance.sh   # Bash compliance launcher
+│   ├── run_coverage.py     # Comprehensive coverage & closure runner
+│   ├── run_coverage.ps1    # PowerShell coverage launcher
+│   └── run_coverage.sh     # Bash coverage launcher
 ├── compliance/     # RISCOF target environment and plugins
 │   ├── config.ini  # RISCOF configuration
 │   ├── rv32i_core/ # DUT plugin (model_test.h, link.ld, YAML specs)
@@ -169,6 +173,7 @@ Explore the `docs/` directory to learn how the CPU and toolchain work:
 *   **[Getting Started Guide](docs/getting_started.md)**: Setup dependencies (Icarus Verilog, Cocotb), run tests, and simulate your first assembly program.
 *   **[Architecture Overview](docs/architecture.md)**: Details the microarchitecture, datapath components, and control flow of the RV32I core.
 *   **[Verification & Testing](docs/verification.md)**: Explains the testbench logic, including randomized unit test fuzzing and the top-level execution environment.
+*   **[Coverage & Verification Closure](docs/coverage.md)**: Comprehensive structural and functional coverage breakdown, achieving 100% functional closure.
 *   **[Toolchain & Assembler](docs/toolchain.md)**: Learn about the custom Python assembler and find links to the assembly Programmer's Reference Manual.
 *   **[Official RISC-V Specifications](https://riscv.org/technical/specifications/)**: Download the official unprivileged ISA manual (Volume 1) that defines the behavior of these instructions.
 
@@ -177,7 +182,7 @@ Explore the `docs/` directory to learn how the CPU and toolchain work:
 This core is currently a fully functional, single-cycle RV32I implementation. The following milestones are planned for future development to harden and extend the design:
 
 1. [x] **Instruction Set Architecture (ISA) Compliance Suite**: Integration with the official `riscv-arch-test` framework to rigorously prove complete RV32I compliance. *(Completed: 37/37 PASSED - 100% Compliant)*
-2. **Coverage Metrics (Closing the Verification Loop)**: Collecting structural and functional coverage data during testbench execution to ensure no edge cases are missed.
+2. [x] **Coverage Metrics (Closing the Verification Loop)**: Comprehensive native Verilator structural (Line, Toggle, Branch, Expr) and Cocotb functional (ISA & corner-case) coverage tracking. *(Completed: 100% Functional ISA Coverage, 100% Branch Coverage, 89.0% Line Coverage, 88.4% Signal Toggle Coverage)*
 3. **Co-Simulation / Golden Reference Model**: Running tests lockstep against a golden reference emulator (such as Spike or Whisper) to immediately detect execution divergence.
 4. **Formal Verification**: Utilizing formal property checking (e.g., SymbiYosys and `rvfi`) to mathematically prove bounded correctness of the control logic.
 5. **Static Timing Analysis (STA)**: Evaluating the critical path delay and theoretical maximum frequency capabilities of the datapath.

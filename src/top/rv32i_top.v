@@ -1,6 +1,8 @@
 `timescale 1ns/1ps
 
-module rv32i_top (
+module rv32i_top #(
+    parameter MEM_ADDR_WIDTH = 19 // 19 bits (2MB, 524288 words) for full compliance suite
+)(
     input wire clk,
     input wire rst
 );
@@ -34,14 +36,14 @@ module rv32i_top (
     );
 
     instr_mem #(
-        .ADDR_WIDTH(14) // 14 bits (64KB) for 16384 words of 32 bits
-    )imem_inst (
+        .ADDR_WIDTH(MEM_ADDR_WIDTH)
+    ) imem_inst (
         .read_address(instr_addr),
         .instruction(instr_data)
     );
 
     data_mem #(
-        .ADDR_WIDTH(14) // 14 bits (64KB) for 16384 words of 32 bits
+        .ADDR_WIDTH(MEM_ADDR_WIDTH)
     ) dmem_inst (
         .clk(clk),
         .addr_in(data_addr),
