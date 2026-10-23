@@ -94,7 +94,7 @@ class CoSimEngine:
         dut_mem_we: int,
         dut_mem_addr: int,
         dut_mem_wdata: int,
-        dut_regs: List[int]
+        dut_regs: Optional[List[int]] = None
     ) -> CommitPacket:
         """
         Executes one step on the Golden Model and compares all architectural signals
@@ -179,15 +179,11 @@ class CoSimEngine:
             expected_str = "mem_we = 0"
             actual_str = f"mem_we = 0x{dut_mem_we:x}, addr = 0x{dut_mem_addr:08x}, data = 0x{dut_mem_wdata:08x}"
 
-        # 5. Full Register File State Check (after posedge commit)
-        if not divergence_reason:
+        # 5. Full Register File State Check (if provided)
+        if not divergence_reason and dut_regs is not None:
             for r in range(1, 32):
                 expected_reg = self.golden.regs[r]
                 actual_reg = dut_regs[r] & 0xFFFFFFFF
-                # Check if current instruction just updated this register
-                if golden_pkt.reg_write and golden_pkt.rd == r:
-                    expected_reg = golden_pkt.wdata & 0xFFFFFFFF
-
                 if actual_reg != expected_reg:
                     diff_mask = actual_reg ^ expected_reg
                     divergence_reason = f"Architectural Register State Drift at x{r}! (Bit Diff: 0x{diff_mask:08x})"
@@ -206,7 +202,7 @@ class CoSimEngine:
             "instruction": dut_instr,
             "mnemonic": golden_pkt.mnemonic,
             "golden_pkt": golden_pkt,
-            "dut_regs": list(dut_regs)
+            "dut_regs": list(dut_regs) if dut_regs is not None else list(self.golden.regs)
         }
         self.history.append(record)
         if len(self.history) > self.max_history:
@@ -221,11 +217,35 @@ class CoSimEngine:
                 dut_pc,
                 dut_instr,
                 golden_pkt.mnemonic,
-                dut_regs
+                dut_regs if dut_regs is not None else list(self.golden.regs)
             )
             raise CoSimDivergenceError(banner)
 
         return golden_pkt
+
+    def verify_registers(self, dut_regs: List[int]):
+        """Verifies full 32-register architectural state after sequential commit."""
+        for r in range(1, 32):
+            expected_reg = self.golden.regs[r]
+            actual_reg = dut_regs[r] & 0xFFFFFFFF
+            if actual_reg != expected_reg:
+                diff_mask = actual_reg ^ expected_reg
+                reason = f"Architectural Register State Drift at x{r}! (Bit Diff: 0x{diff_mask:08x})"
+                expected_str = f"x{r} = 0x{expected_reg:08x}"
+                actual_str = f"x{r} = 0x{actual_reg:08x}"
+                last = self.history[-1] if self.history else {
+                    "pc": 0, "instruction": 0, "mnemonic": "N/A"
+                }
+                banner = self._format_divergence_report(
+                    reason,
+                    expected_str,
+                    actual_str,
+                    last["pc"],
+                    last["instruction"],
+                    last["mnemonic"],
+                    dut_regs
+                )
+                raise CoSimDivergenceError(banner)
 
     def _format_divergence_report(
         self,

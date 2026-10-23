@@ -2,6 +2,12 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, FallingEdge, ReadOnly
 import os
+import sys
+from pathlib import Path
+
+PROJ_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(PROJ_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJ_ROOT))
 
 def load_hex(dut, filename):
     """Loads a hex file into the instruction memory."""
@@ -77,13 +83,27 @@ async def test_full_core(dut):
     symbols = {}
     elf_file = os.getenv("PROG_ELF", "")
     hex_file = os.getenv("PROG_HEX", "")
-    
-    if elf_file:
+
+    if elf_file and not os.path.exists(elf_file):
+        candidate = PROJ_ROOT / elf_file
+        if candidate.exists():
+            elf_file = str(candidate)
+
+    if hex_file and not os.path.exists(hex_file):
+        candidate = PROJ_ROOT / hex_file
+        if candidate.exists():
+            hex_file = str(candidate)
+
+    if elf_file and os.path.exists(elf_file):
         symbols = load_elf(dut, elf_file)
-    elif hex_file:
+    elif hex_file and os.path.exists(hex_file):
         load_hex(dut, hex_file)
     else:
         dut._log.info("No PROG_ELF or PROG_HEX set. Running with default empty memory.")
+
+    # Initialize architectural registers to zero to avoid 'x' propagation
+    for r in range(32):
+        dut.core_inst.reg_file_inst.registers[r].value = 0
     
     # 4. Monitor execution to detect program completion
     tohost_addr = symbols.get("tohost", None)
@@ -116,8 +136,6 @@ async def test_full_core(dut):
     dut.rst.value = 1
     for _ in range(5):
         await RisingEdge(dut.clk)
-    if cosim_engine:
-        await FallingEdge(dut.clk)
     dut.rst.value = 0
 
     MAX_CYCLES = 100000
@@ -136,28 +154,29 @@ async def test_full_core(dut):
             cosim_engine.close()
 
     while cycles < MAX_CYCLES:
-        if cosim_engine:
-            try:
-                dut_pc = int(dut.core_inst.pc_out.value)
-                dut_next_pc = int(dut.core_inst.next_pc.value)
-                dut_instr = int(dut.core_inst.instruction.value)
-                dut_reg_we = bool(int(dut.core_inst.reg_write.value))
-                dut_rd = (dut_instr >> 7) & 0x1F
-                dut_wdata = int(dut.core_inst.write_data.value)
-                dut_mem_we = int(dut.core_inst.data_we.value)
-                dut_mem_addr = int(dut.core_inst.data_addr.value)
-                dut_mem_wdata = int(dut.core_inst.data_wdata.value)
-            except ValueError:
-                dut_pc = 0
-                dut_next_pc = 4
-                dut_instr = 0x13
-                dut_reg_we = False
-                dut_rd = 0
-                dut_wdata = 0
-                dut_mem_we = 0
-                dut_mem_addr = 0
-                dut_mem_wdata = 0
+        try:
+            pc = int(dut.core_inst.pc_out.value)
+            pc_next = int(dut.core_inst.next_pc.value)
+            instruction = int(dut.core_inst.instruction.value)
+            reg_write = bool(int(dut.core_inst.reg_write.value))
+            rd = (instruction >> 7) & 0x1F
+            write_data = int(dut.core_inst.write_data.value)
+            mem_we = int(dut.core_inst.data_we.value)
+            mem_addr = int(dut.core_inst.data_addr.value)
+            mem_wdata = int(dut.core_inst.data_wdata.value)
+        except ValueError:
+            pc = 0
+            pc_next = 4
+            instruction = 0x13
+            reg_write = False
+            rd = 0
+            write_data = 0
+            mem_we = 0
+            mem_addr = 0
+            mem_wdata = 0
 
+        # Step golden model and verify combinational outputs
+        if cosim_engine:
             if inject_fault_cycle >= 0 and cycles == inject_fault_cycle:
                 try:
                     cur_val = int(dut.core_inst.reg_file_inst.registers[3].value)
@@ -165,9 +184,31 @@ async def test_full_core(dut):
                 except Exception:
                     pass
 
+            cosim_engine.verify_step(
+                dut_pc=pc,
+                dut_next_pc=pc_next,
+                dut_instr=instruction,
+                dut_reg_we=reg_write,
+                dut_rd=rd,
+                dut_wdata=write_data,
+                dut_mem_we=mem_we,
+                dut_mem_addr=mem_addr,
+                dut_mem_wdata=mem_wdata
+            )
+
+        if enable_coverage:
+            try:
+                imm_val = int(dut.core_inst.imm_data.value)
+                mem_rdata_val = int(dut.core_inst.data_rdata.value)
+                func_collector.sample(instruction, pc, pc_next, imm_val, mem_addr, mem_rdata_val)
+                struct_monitor.sample_cycle(dut)
+            except ValueError:
+                pass
+
         await RisingEdge(dut.clk)
         await ReadOnly()
 
+        # Verify register file state committed from this instruction
         if cosim_engine:
             dut_regs = [0] * 32
             for r in range(32):
@@ -175,48 +216,10 @@ async def test_full_core(dut):
                     dut_regs[r] = int(dut.core_inst.reg_file_inst.registers[r].value)
                 except ValueError:
                     dut_regs[r] = 0
-            cosim_engine.verify_step(
-                dut_pc=dut_pc,
-                dut_next_pc=dut_next_pc,
-                dut_instr=dut_instr,
-                dut_reg_we=dut_reg_we,
-                dut_rd=dut_rd,
-                dut_wdata=dut_wdata,
-                dut_mem_we=dut_mem_we,
-                dut_mem_addr=dut_mem_addr,
-                dut_mem_wdata=dut_mem_wdata,
-                dut_regs=dut_regs
-            )
-        
-        if enable_coverage:
-            try:
-                instr_val = int(dut.core_inst.instruction.value)
-                pc_val = int(dut.core_inst.pc_out.value)
-                next_pc_val = int(dut.core_inst.next_pc.value)
-                imm_val = int(dut.core_inst.imm_data.value)
-                mem_addr_val = int(dut.core_inst.data_addr.value)
-                mem_rdata_val = int(dut.core_inst.data_rdata.value)
-                func_collector.sample(instr_val, pc_val, next_pc_val, imm_val, mem_addr_val, mem_rdata_val)
-                struct_monitor.sample_cycle(dut)
-            except ValueError:
-                pass
-        
-        try:
-            pc = int(dut.core_inst.pc_out.value)
-            pc_next = int(dut.core_inst.next_pc.value)
-        except ValueError:
-            pc = 0
-            pc_next = 4
-        
-        try:
-            mem_we = int(dut.core_inst.data_we.value)
-            mem_addr = int(dut.core_inst.data_addr.value)
-        except ValueError:
-            mem_we = 0
-            mem_addr = 0
-        
+            cosim_engine.verify_registers(dut_regs)
+
         if mem_we != 0 and mem_addr in tohost_set:
-            status = int(dut.core_inst.data_wdata.value)
+            status = mem_wdata
             dut._log.info(f"Program completed via tohost write to 0x{mem_addr:08X} with status: {status}")
             
             # Dump signature if requested
@@ -260,9 +263,6 @@ async def test_full_core(dut):
             else:
                 dut._log.info(f"Test ended via infinite loop. gp (x3) = {gp_status}")
             return
-
-        if cosim_engine:
-            await FallingEdge(dut.clk)
 
         cycles += 1
         

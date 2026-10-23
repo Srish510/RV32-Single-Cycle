@@ -36,19 +36,24 @@ def run_top_level_test():
     inc_dir = src_dir / "include"
     
     waves = os.getenv("WAVES", "0") == "1"
+    force_build = os.getenv("FORCE_BUILD", "0") == "1"
     runner = get_runner(sim)
-    runner.build(
-        sources=sources,
-        hdl_toplevel="rv32i_top",
-        includes=[inc_dir],
-        build_dir=sim_dir,
-        waves=waves
-    )
+    
+    if force_build or not (sim_dir / "sim.vvp").exists():
+        runner.build(
+            sources=sources,
+            hdl_toplevel="rv32i_top",
+            includes=[inc_dir],
+            build_dir=sim_dir,
+            waves=waves
+        )
     
     runner.test(
         hdl_toplevel="rv32i_top",
         test_module="test_rv32i_top",
         test_dir=sim_dir,
+        build_dir=sim_dir,
+        hdl_toplevel_lang=hdl_toplevel_lang,
         waves=waves
     )
 
