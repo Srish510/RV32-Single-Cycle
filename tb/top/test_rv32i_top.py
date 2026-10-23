@@ -1,6 +1,6 @@
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, ReadOnly
+from cocotb.triggers import RisingEdge, FallingEdge, ReadOnly
 import os
 
 def load_hex(dut, filename):
@@ -85,18 +85,24 @@ async def test_full_core(dut):
     else:
         dut._log.info("No PROG_ELF or PROG_HEX set. Running with default empty memory.")
     
-    # 3. Assert reset for 5 clock cycles, then deassert it
-    dut.rst.value = 1
-    for _ in range(5):
-        await RisingEdge(dut.clk)
-    dut.rst.value = 0
-    
     # 4. Monitor execution to detect program completion
     tohost_addr = symbols.get("tohost", None)
     tohost_set = {0x80001000, 0x00001000}
     if tohost_addr is not None:
         tohost_set.add(tohost_addr)
-        
+
+    enable_cosim = os.getenv("ENABLE_COSIM", "0") == "1"
+    trace_file = os.getenv("COSIM_TRACE", "")
+    inject_fault_cycle = int(os.getenv("COSIM_INJECT_FAULT", "-1"))
+    cosim_engine = None
+    if enable_cosim:
+        from tb.cosim.cosim_engine import CoSimEngine
+        cosim_engine = CoSimEngine(trace_file=trace_file if trace_file else None)
+        if elf_file:
+            cosim_engine.preload_elf(elf_file)
+        elif hex_file:
+            cosim_engine.preload_hex(hex_file)
+
     enable_coverage = os.getenv("ENABLE_COVERAGE", "0") == "1"
     func_collector = None
     struct_monitor = None
@@ -105,11 +111,19 @@ async def test_full_core(dut):
         from tb.coverage.structural_coverage import StructuralCoverageMonitor
         func_collector = FunctionalCoverageCollector()
         struct_monitor = StructuralCoverageMonitor()
-        
+
+    # 3. Assert reset for 5 clock cycles, then deassert it
+    dut.rst.value = 1
+    for _ in range(5):
+        await RisingEdge(dut.clk)
+    if cosim_engine:
+        await FallingEdge(dut.clk)
+    dut.rst.value = 0
+
     MAX_CYCLES = 100000
     cycles = 0
-    
-    def save_coverage_artifacts():
+
+    def cleanup():
         if enable_coverage:
             cov_yaml = os.getenv("COV_YAML", "")
             if cov_yaml:
@@ -118,10 +132,61 @@ async def test_full_core(dut):
             cov_struct = os.getenv("COV_STRUCT_JSON", "")
             if cov_struct and struct_monitor:
                 struct_monitor.save_json(cov_struct)
+        if cosim_engine:
+            cosim_engine.close()
 
     while cycles < MAX_CYCLES:
+        if cosim_engine:
+            try:
+                dut_pc = int(dut.core_inst.pc_out.value)
+                dut_next_pc = int(dut.core_inst.next_pc.value)
+                dut_instr = int(dut.core_inst.instruction.value)
+                dut_reg_we = bool(int(dut.core_inst.reg_write.value))
+                dut_rd = (dut_instr >> 7) & 0x1F
+                dut_wdata = int(dut.core_inst.write_data.value)
+                dut_mem_we = int(dut.core_inst.data_we.value)
+                dut_mem_addr = int(dut.core_inst.data_addr.value)
+                dut_mem_wdata = int(dut.core_inst.data_wdata.value)
+            except ValueError:
+                dut_pc = 0
+                dut_next_pc = 4
+                dut_instr = 0x13
+                dut_reg_we = False
+                dut_rd = 0
+                dut_wdata = 0
+                dut_mem_we = 0
+                dut_mem_addr = 0
+                dut_mem_wdata = 0
+
+            if inject_fault_cycle >= 0 and cycles == inject_fault_cycle:
+                try:
+                    cur_val = int(dut.core_inst.reg_file_inst.registers[3].value)
+                    dut.core_inst.reg_file_inst.registers[3].value = cur_val ^ 0xDEADBEEF
+                except Exception:
+                    pass
+
         await RisingEdge(dut.clk)
         await ReadOnly()
+
+        if cosim_engine:
+            dut_regs = [0] * 32
+            for r in range(32):
+                try:
+                    dut_regs[r] = int(dut.core_inst.reg_file_inst.registers[r].value)
+                except ValueError:
+                    dut_regs[r] = 0
+            cosim_engine.verify_step(
+                dut_pc=dut_pc,
+                dut_next_pc=dut_next_pc,
+                dut_instr=dut_instr,
+                dut_reg_we=dut_reg_we,
+                dut_rd=dut_rd,
+                dut_wdata=dut_wdata,
+                dut_mem_we=dut_mem_we,
+                dut_mem_addr=dut_mem_addr,
+                dut_mem_wdata=dut_mem_wdata,
+                dut_regs=dut_regs
+            )
         
         if enable_coverage:
             try:
@@ -169,7 +234,9 @@ async def test_full_core(dut):
                             val = 0
                         sf.write(f"{val:08x}\n")
                         
-            save_coverage_artifacts()
+            cleanup()
+            if cosim_engine:
+                dut._log.info(f"CO-SIMULATION PASSED: {cosim_engine.instruction_count} instructions verified in lockstep!")
             if status == 1:
                 dut._log.info("Test Passed! (tohost == 1)")
             else:
@@ -179,7 +246,9 @@ async def test_full_core(dut):
         # Check for infinite loop (spin lock)
         if pc == pc_next:
             dut._log.info(f"Program completed via infinite loop at PC = 0x{pc:08X}")
-            save_coverage_artifacts()
+            cleanup()
+            if cosim_engine:
+                dut._log.info(f"CO-SIMULATION PASSED: {cosim_engine.instruction_count} instructions verified in lockstep!")
             try:
                 gp_status = int(dut.core_inst.reg_file_inst.registers[3].value)
             except ValueError:
@@ -191,8 +260,11 @@ async def test_full_core(dut):
             else:
                 dut._log.info(f"Test ended via infinite loop. gp (x3) = {gp_status}")
             return
-            
+
+        if cosim_engine:
+            await FallingEdge(dut.clk)
+
         cycles += 1
         
-    save_coverage_artifacts()
+    cleanup()
     assert False, f"Timeout! Program did not complete within {MAX_CYCLES} cycles."

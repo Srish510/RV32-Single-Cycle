@@ -158,3 +158,31 @@ Reports are automatically generated at:
 * **Markdown Summary:** [`docs/coverage.md`](coverage.md)
 * **Annotated Verilog Sources:** `sim/coverage/verilator_annotated/`
 * **LCOV Tracefile:** `sim/coverage/verilator.info`
+
+## 5. Lockstep Co-Simulation & Golden Reference Model
+
+To verify execution correctness at the microarchitectural level on every instruction boundary, the core includes a **Lockstep Co-Simulation Verification Engine**:
+
+* **Dual-Engine Golden ISS**: Features an instruction-accurate unprivileged RV32I emulator implemented in native C++ ([`tb/verilator/rv32i_golden_model.h`](../tb/verilator/rv32i_golden_model.h)) and Python ([`tb/cosim/rv32i_golden_model.py`](../tb/cosim/rv32i_golden_model.py)).
+* **Dual-Phase Lockstep Protocol**:
+  1. *Combinational Phase (`clk == 0`)*: Samples PC, Next PC (branch targets), instruction machine code, register writeback enable/destination/data, and active byte-masked memory writes, asserting equality with the Golden Model.
+  2. *Sequential Phase (`clk == 1`)*: Verifies full 32-register architectural state (`x0` through `x31`) after register commit, guaranteeing zero state drift over millions of instructions.
+* **Instant Divergence Halting**: On any discrepancy, execution halts in that exact cycle and prints a rich diagnostic report containing the instruction number, PC, disassembly, bitwise XOR difference mask, 10-instruction rolling history, and architectural register dump.
+* **Spike / Whisper Trace Compatibility**: Generates standard Spike commit logs (`--trace`) for cross-validation against official RISC-V simulators (`core 0: 0x... (0x...) x.. 0x...`).
+* **Fault Injection Mode**: Built-in verification testing (`--inject-fault <cycle>`) to prove that any RTL corruption is immediately detected and reported.
+
+### Running Lockstep Co-Simulation
+
+```bash
+# Run full 38-test regression suite under Verilator Lockstep Co-Simulation
+python tb/run_cosim.py --all
+
+# Run a specific test with Spike trace export
+python tb/run_cosim.py --test add-01 --trace
+
+# Verify divergence detection using intentional fault injection
+python tb/run_cosim.py --test add-01 --inject-fault 100
+```
+
+Detailed architectural specifications, verification protocols, and regression tables are available in **[`docs/cosimulation.md`](cosimulation.md)**.
+

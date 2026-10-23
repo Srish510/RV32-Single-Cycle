@@ -35,20 +35,21 @@ def run_top_level_test():
     
     inc_dir = src_dir / "include"
     
+    waves = os.getenv("WAVES", "0") == "1"
     runner = get_runner(sim)
     runner.build(
         sources=sources,
         hdl_toplevel="rv32i_top",
         includes=[inc_dir],
         build_dir=sim_dir,
-        waves=True # Enables VCD/FST waveform dumping
+        waves=waves
     )
     
     runner.test(
         hdl_toplevel="rv32i_top",
         test_module="test_rv32i_top",
         test_dir=sim_dir,
-        waves=True
+        waves=waves
     )
 
 if __name__ == "__main__":

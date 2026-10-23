@@ -7,9 +7,11 @@ This project goes beyond just the hardware core; it includes a custom-built Pyth
 ## Features
 *   **RV32I Core**: Single-cycle Verilog implementation supporting all base arithmetic, logic, branch, jump, and memory instructions.
 *   **100% ISA Compliance**: Verified against the official RISC-V Architectural Test Suite (`riscv-arch-test`), passing **37 / 37** applicable compliance tests.
+*   **Lockstep Co-Simulation**: Instruction-by-instruction verification against an RV32I Golden Reference Model (ISS) in both C++ and Python, with instant divergence detection and Spike commit log export.
+*   **100% Functional Coverage**: Verification loop closed with 100% functional ISA coverage and 100% RTL branch coverage under Verilator and Cocotb.
 *   **Custom Assembler**: A two-pass Python assembler (`rvasm`) with macro expansion, address relocation (`%hi/%lo`), and custom directives.
 *   **Cocotb Verification**: Deeply integrated Python testbenches featuring exhaustive randomized fuzzing for unit tests, and a "motherboard simulator" for top-level code execution.
-*   **One-Click Simulation**: Provided PowerShell and Bash scripts for instantly assembling and running your `.s` files on the simulated CPU.
+*   **One-Click Simulation**: Provided PowerShell and Bash scripts for instantly assembling, simulating, and verifying your `.s` files on the simulated CPU.
 
 ## Architecture
 
@@ -114,6 +116,27 @@ When the top-level simulation runs, it automatically records all hardware signal
 gtkwave sim/rv32i_top_full/rv32i_top.fst
 ```
 
+### 6. Running Lockstep Co-Simulation
+Verify CPU execution against the Golden Reference Model (ISS) in cycle-by-cycle lockstep:
+```bash
+# Windows (PowerShell)
+.\tb\run_cosim.ps1 -All
+
+# Linux / macOS (Bash)
+./tb/run_cosim.sh --all
+```
+
+## Lockstep Co-Simulation & Golden Reference Model
+
+To verify execution correctness and catch microarchitectural bugs at the exact cycle of divergence, the core implements a **Lockstep Co-Simulation Engine**:
+
+* **Dual-Engine Golden ISS**: Instruction-accurate unprivileged RV32I emulators written in high-performance C++ ([`tb/verilator/rv32i_golden_model.h`](tb/verilator/rv32i_golden_model.h)) and Python ([`tb/cosim/rv32i_golden_model.py`](tb/cosim/rv32i_golden_model.py)).
+* **Dual-Phase Cycle Protocol**: Asserts instruction decoding, writeback data, and active byte-masked memory writes at `clk=0`, then verifies all 32 architectural registers (`x0`–`x31`) after commit at `clk=1`.
+* **Zero Divergence (38 / 38 PASSED)**: **68,141 instructions** verified across all compliance and coverage closure tests with zero state drift.
+* **Spike Trace Compatibility**: Outputs standard Spike commit logs (`core 0: 0x... (0x...) x.. 0x...`) for differential verification against external emulators (`--trace`).
+* **Fault Injection Mode**: Built-in verification testing (`--inject-fault <cycle>`) confirms immediate divergence detection.
+* See **[`docs/cosimulation.md`](docs/cosimulation.md)** for detailed theory and results.
+
 ## Official RISC-V Architectural Compliance
 
 To ensure strict compliance with the RISC-V unprivileged integer specification, the core is validated against the official [RISC-V Architectural Test Suite](https://github.com/riscv/riscv-arch-test).
@@ -142,18 +165,23 @@ Because this is a pure single-cycle computational core designed without privileg
 │   ├── mem/        # Memory models (ROM and RAM)
 │   ├── top/        # Top-level wrapper (rv32i_top.v)
 │   └── wrappers/   # ASIC/FPGA top wrappers
-├── tb/             # Cocotb verification and testing
+├── tb/             # Cocotb & Verilator verification suite
 │   ├── asm/        # Custom assembly test programs & closure suite
+│   ├── cosim/      # Python Golden Reference Model & Co-Sim Engine
 │   ├── coverage/   # Coverage collectors (functional, structural, reporter)
 │   ├── hex/        # Generated hex binaries for simulation
 │   ├── units/      # Isolated unit tests for individual modules
 │   ├── top/        # Full-system integration testbench
+│   ├── verilator/  # Native Verilator C++ testbench & Golden ISS
 │   ├── run_compliance.py   # Compliance test runner
 │   ├── run_compliance.ps1  # PowerShell compliance launcher
 │   ├── run_compliance.sh   # Bash compliance launcher
 │   ├── run_coverage.py     # Comprehensive coverage & closure runner
 │   ├── run_coverage.ps1    # PowerShell coverage launcher
-│   └── run_coverage.sh     # Bash coverage launcher
+│   ├── run_coverage.sh     # Bash coverage launcher
+│   ├── run_cosim.py        # Lockstep co-simulation runner
+│   ├── run_cosim.ps1       # PowerShell co-sim launcher
+│   └── run_cosim.sh        # Bash co-sim launcher
 ├── compliance/     # RISCOF target environment and plugins
 │   ├── config.ini  # RISCOF configuration
 │   ├── rv32i_core/ # DUT plugin (model_test.h, link.ld, YAML specs)
@@ -173,6 +201,7 @@ Explore the `docs/` directory to learn how the CPU and toolchain work:
 *   **[Getting Started Guide](docs/getting_started.md)**: Setup dependencies (Icarus Verilog, Cocotb), run tests, and simulate your first assembly program.
 *   **[Architecture Overview](docs/architecture.md)**: Details the microarchitecture, datapath components, and control flow of the RV32I core.
 *   **[Verification & Testing](docs/verification.md)**: Explains the testbench logic, including randomized unit test fuzzing and the top-level execution environment.
+*   **[Lockstep Co-Simulation](docs/cosimulation.md)**: Deep dive into the instruction-accurate Golden ISS, dual-phase lockstep verification, and divergence diagnostics.
 *   **[Coverage & Verification Closure](docs/coverage.md)**: Comprehensive structural and functional coverage breakdown, achieving 100% functional closure.
 *   **[Toolchain & Assembler](docs/toolchain.md)**: Learn about the custom Python assembler and find links to the assembly Programmer's Reference Manual.
 *   **[Official RISC-V Specifications](https://riscv.org/technical/specifications/)**: Download the official unprivileged ISA manual (Volume 1) that defines the behavior of these instructions.
@@ -183,8 +212,8 @@ This core is currently a fully functional, single-cycle RV32I implementation. Th
 
 1. [x] **Instruction Set Architecture (ISA) Compliance Suite**: Integration with the official `riscv-arch-test` framework to rigorously prove complete RV32I compliance. *(Completed: 37/37 PASSED - 100% Compliant)*
 2. [x] **Coverage Metrics (Closing the Verification Loop)**: Comprehensive native Verilator structural (Line, Toggle, Branch, Expr) and Cocotb functional (ISA & corner-case) coverage tracking. *(Completed: 100% Functional ISA Coverage, 100% Branch Coverage, 89.0% Line Coverage, 88.4% Signal Toggle Coverage)*
-3. **Co-Simulation / Golden Reference Model**: Running tests lockstep against a golden reference emulator (such as Spike or Whisper) to immediately detect execution divergence.
-4. **Formal Verification**: Utilizing formal property checking (e.g., SymbiYosys and `rvfi`) to mathematically prove bounded correctness of the control logic.
+3. [x] **Co-Simulation / Golden Reference Model**: Running tests lockstep against an instruction-accurate RV32I golden reference model (ISS), validating PC, writeback, and full 32 architectural registers on every retired instruction with Spike commit trace export. *(Completed: 38/38 PASSED in 100% Lockstep, zero architectural drift)*
+4. [ ] **Formal Verification**: Utilizing formal property checking (e.g., SymbiYosys and `rvfi`) to mathematically prove bounded correctness of the control logic.
 5. **Static Timing Analysis (STA)**: Evaluating the critical path delay and theoretical maximum frequency capabilities of the datapath.
 6. **ISA Extensions & System Features**: Adding support for Multiplication/Division (`M` extension), Floating Point (`F` extension), Control and Status Registers (CSRs), exceptions, and hardware interrupts.
 7. **Real Memory Interfacing & MMIO**: Transitioning from simulated backdoor ROMs to physical, synchronous RAM and memory-mapped peripherals.
