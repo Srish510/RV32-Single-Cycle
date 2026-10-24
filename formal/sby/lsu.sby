@@ -1,0 +1,25 @@
+[tasks]
+bmc
+prove
+cover
+
+[options]
+bmc: mode bmc
+bmc: depth 2
+prove: mode prove
+prove: depth 2
+cover: mode cover
+cover: depth 2
+
+[engines]
+smtbmc z3
+
+[script]
+read_verilog -I include core/lsu.v
+read_verilog -formal -I include core/formal_lsu.v
+prep -top formal_lsu
+
+[files]
+include/rv32i_defs.vh src/include/rv32i_defs.vh
+core/lsu.v src/core/lsu.v
+core/formal_lsu.v formal/properties/formal_lsu.v

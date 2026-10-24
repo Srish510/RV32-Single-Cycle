@@ -37,6 +37,7 @@ sim/rv32i_cov_sim/
 sim/verilator_cov/
 sim/verilator_cosim/
 sim/cosim/
+sim/formal/
 sim/test_verilator*/
 sim/test_*.elf
 *.dat

@@ -1,0 +1,31 @@
+[tasks]
+bmc
+prove
+cover
+
+[options]
+bmc: mode bmc
+bmc: depth 2
+prove: mode prove
+prove: depth 2
+cover: mode cover
+cover: depth 2
+
+[engines]
+smtbmc z3
+
+[script]
+read_verilog -I include core/branch_unit.v
+read_verilog -I include core/pc_src_mux.v
+read_verilog -I include core/pc_controller.v
+read_verilog -I include core/pc_writeback_mux.v
+read_verilog -formal -I include core/formal_branch_pc.v
+prep -top formal_branch_pc
+
+[files]
+include/rv32i_defs.vh src/include/rv32i_defs.vh
+core/branch_unit.v src/core/branch_unit.v
+core/pc_src_mux.v src/core/pc_src_mux.v
+core/pc_controller.v src/core/pc_controller.v
+core/pc_writeback_mux.v src/core/pc_writeback_mux.v
+core/formal_branch_pc.v formal/properties/formal_branch_pc.v

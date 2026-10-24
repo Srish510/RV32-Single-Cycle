@@ -1,0 +1,25 @@
+[tasks]
+bmc
+prove
+cover
+
+[options]
+bmc: mode bmc
+bmc: depth 2
+prove: mode prove
+prove: depth 2
+cover: mode cover
+cover: depth 2
+
+[engines]
+smtbmc z3
+
+[script]
+read_verilog -I include core/alu.v
+read_verilog -formal -I include core/formal_alu.v
+prep -top formal_alu
+
+[files]
+include/rv32i_defs.vh src/include/rv32i_defs.vh
+core/alu.v src/core/alu.v
+core/formal_alu.v formal/properties/formal_alu.v

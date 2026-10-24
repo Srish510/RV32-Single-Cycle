@@ -186,3 +186,37 @@ python tb/run_cosim.py --test add-01 --inject-fault 100
 
 Detailed architectural specifications, verification protocols, and regression tables are available in **[`docs/cosimulation.md`](cosimulation.md)**.
 
+## 6. Formal Verification (SymbiYosys + Yosys-SMTBMC + RVFI)
+
+To mathematically prove bounded and unbounded correctness across 100% of the state and input space ($2^{32}$ instruction words and $2^{64}$ operand combinations), the core features a pure IEEE 1364-2005 Verilog (`.v`) **Formal Property Checking Suite** powered by **SymbiYosys**, **Yosys-SMTBMC**, and the **Z3 SMT Solver**:
+
+* **Non-Invasive RVFI Bridge**: Uses Yosys's `expose` pass to tap internal datapath signals from the unmodified [`src/core/rv32i_core.v`](../src/core/rv32i_core.v) into [`formal/rvfi/rv32i_rvfi_wrapper.v`](../formal/rvfi/rv32i_rvfi_wrapper.v), exposing the industry-standard **RISC-V Formal Interface (`rvfi_*`)** retirement packet.
+* **Three-Phase Formal Proofs (`bmc`, `prove`, `cover`)**:
+  1. **Bounded Model Checking (`bmc`)**: Exhaustively checks all assertions across symbolic multi-cycle execution traces from reset.
+  2. **Temporal $k$-Induction (`prove`)**: Mathematically proves invariants hold across unbounded clock cycles ($\forall t \in [0, \infty)$).
+  3. **Reachability Witness Generation (`cover`)**: Synthesizes concrete `.vcd` waveform traces for 32 functional cover points to prove non-vacuity.
+* **5 Formal Verification Suites (276 Proven Assertions, 32 Witness Covers)**:
+  1. `decoder` ([`formal_decoder.v`](../formal/properties/formal_decoder.v)): 72 assertions proving control signal validity, load/store mutual exclusion, illegal opcode safe-NOP fallback, and immediate sign-extension across all $2^{32}$ encodings.
+  2. `alu` ([`formal_alu.v`](../formal/properties/formal_alu.v)): 40 assertions proving arithmetic/logic/shift operations and two's complement signed overflow theorems across all $2^{68}$ inputs (which discovered and resolved a real signed subtraction `overflow` flag bug in [`src/core/alu.v`](../src/core/alu.v)).
+  3. `lsu` ([`formal_lsu.v`](../formal/properties/formal_lsu.v)): 41 assertions proving read/write mutual exclusion, byte-enable mask legality, and load sign/zero extension.
+  4. `branch_pc` ([`formal_branch_pc.v`](../formal/properties/formal_branch_pc.v)): 17 assertions proving branch evaluation, `JALR` LSB clearing, and 4-byte alignment preservation.
+  5. `rvfi_core` ([`formal_rvfi_core.v`](../formal/properties/formal_rvfi_core.v)): 106 assertions proving PC continuity, `x0` hardwired-zero invariance, Register File Read-After-Write (RAW) & Frame non-interference, and end-to-end RVFI ISA correctness for all 37 base RV32I instructions.
+
+### Running Formal Verification
+
+```bash
+# Run all 5 formal suites (BMC + k-Induction + Reachability Cover)
+python tb/run_formal.py --all
+
+# Windows (PowerShell)
+.\tb\run_formal.ps1 --all
+
+# Linux / macOS (Bash)
+./tb/run_formal.sh --all
+
+# Run intentional property violation demo to generate a counterexample VCD trace
+python tb/run_formal.py --inject-bug decoder
+```
+
+Complete formal property tables, $k$-induction theory, and bug discovery analysis are documented in **[`docs/formal_verification.md`](formal_verification.md)**.
+

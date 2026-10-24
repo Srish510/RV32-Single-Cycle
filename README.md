@@ -7,6 +7,7 @@ This project goes beyond just the hardware core; it includes a custom-built Pyth
 ## Features
 *   **RV32I Core**: Single-cycle Verilog implementation supporting all base arithmetic, logic, branch, jump, and memory instructions.
 *   **100% ISA Compliance**: Verified against the official RISC-V Architectural Test Suite (`riscv-arch-test`), passing **37 / 37** applicable compliance tests.
+*   **Formal Verification (SymbiYosys + RVFI)**: Mathematically proven across **276 formal assertions** and **32 witness covers** (5/5 suites passing Bounded Model Checking, unbounded $k$-Induction, and RVFI 37-instruction ISA contracts in pure Verilog-2005).
 *   **Lockstep Co-Simulation**: Instruction-by-instruction verification against an RV32I Golden Reference Model (ISS) in both C++ and Python, with instant divergence detection and Spike commit log export.
 *   **100% Functional Coverage**: Verification loop closed with 100% functional ISA coverage and 100% RTL branch coverage under Verilator and Cocotb.
 *   **Custom Assembler**: A two-pass Python assembler (`rvasm`) with macro expansion, address relocation (`%hi/%lo`), and custom directives.
@@ -126,6 +127,16 @@ Verify CPU execution against the Golden Reference Model (ISS) in cycle-by-cycle 
 ./tb/run_cosim.sh --all
 ```
 
+### 7. Running Formal Verification (SymbiYosys + RVFI)
+Mathematically prove bounded and unbounded ($k$-induction) correctness of all control logic, datapath units, and the 37-instruction RVFI contract:
+```bash
+# Windows (PowerShell)
+.\tb\run_formal.ps1 --all
+
+# Linux / macOS (Bash)
+./tb/run_formal.sh --all
+```
+
 ## Lockstep Co-Simulation & Golden Reference Model
 
 To verify execution correctness and catch microarchitectural bugs at the exact cycle of divergence, the core implements a **Lockstep Co-Simulation Engine**:
@@ -181,7 +192,14 @@ Because this is a pure single-cycle computational core designed without privileg
 │   ├── run_coverage.sh     # Bash coverage launcher
 │   ├── run_cosim.py        # Lockstep co-simulation runner
 │   ├── run_cosim.ps1       # PowerShell co-sim launcher
-│   └── run_cosim.sh        # Bash co-sim launcher
+│   ├── run_cosim.sh        # Bash co-sim launcher
+│   ├── run_formal.py       # SymbiYosys + RVFI formal verification runner
+│   ├── run_formal.ps1      # PowerShell formal verification launcher
+│   └── run_formal.sh       # Bash formal verification launcher
+├── formal/         # Pure Verilog-2005 Formal Verification & RVFI suite
+│   ├── rvfi/       # RISC-V Formal Interface (RVFI) core wrapper (.v)
+│   ├── properties/ # Formal property harnesses (decoder, alu, lsu, branch_pc, rvfi_core)
+│   └── sby/        # SymbiYosys (.sby) task configurations (bmc, prove, cover)
 ├── compliance/     # RISCOF target environment and plugins
 │   ├── config.ini  # RISCOF configuration
 │   ├── rv32i_core/ # DUT plugin (model_test.h, link.ld, YAML specs)
@@ -201,6 +219,7 @@ Explore the `docs/` directory to learn how the CPU and toolchain work:
 *   **[Getting Started Guide](docs/getting_started.md)**: Setup dependencies (Icarus Verilog, Cocotb), run tests, and simulate your first assembly program.
 *   **[Architecture Overview](docs/architecture.md)**: Details the microarchitecture, datapath components, and control flow of the RV32I core.
 *   **[Verification & Testing](docs/verification.md)**: Explains the testbench logic, including randomized unit test fuzzing and the top-level execution environment.
+*   **[Formal Verification (SymbiYosys & RVFI)](docs/formal_verification.md)**: Details the 276 formal assertions, unbounded $k$-induction proofs, RVFI 37-instruction ISA contracts, and formal bug discovery.
 *   **[Lockstep Co-Simulation](docs/cosimulation.md)**: Deep dive into the instruction-accurate Golden ISS, dual-phase lockstep verification, and divergence diagnostics.
 *   **[Coverage & Verification Closure](docs/coverage.md)**: Comprehensive structural and functional coverage breakdown, achieving 100% functional closure.
 *   **[Toolchain & Assembler](docs/toolchain.md)**: Learn about the custom Python assembler and find links to the assembly Programmer's Reference Manual.
@@ -213,7 +232,7 @@ This core is currently a fully functional, single-cycle RV32I implementation. Th
 1. [x] **Instruction Set Architecture (ISA) Compliance Suite**: Integration with the official `riscv-arch-test` framework to rigorously prove complete RV32I compliance. *(Completed: 37/37 PASSED - 100% Compliant)*
 2. [x] **Coverage Metrics (Closing the Verification Loop)**: Comprehensive native Verilator structural (Line, Toggle, Branch, Expr) and Cocotb functional (ISA & corner-case) coverage tracking. *(Completed: 100% Functional ISA Coverage, 100% Branch Coverage, 89.0% Line Coverage, 88.4% Signal Toggle Coverage)*
 3. [x] **Co-Simulation / Golden Reference Model**: Running tests lockstep against an instruction-accurate RV32I golden reference model (ISS), validating PC, writeback, and full 32 architectural registers on every retired instruction with Spike commit trace export. *(Completed: 38/38 PASSED in 100% Lockstep, zero architectural drift)*
-4. [ ] **Formal Verification**: Utilizing formal property checking (e.g., SymbiYosys and `rvfi`) to mathematically prove bounded correctness of the control logic.
+4. [x] **Formal Verification**: Utilizing formal property checking (SymbiYosys, Yosys-SMTBMC, Z3, and `rvfi`) in pure Verilog-2005 to mathematically prove bounded and unbounded ($k$-induction) correctness of the control logic, ALU, LSU, Branch/PC unit, and all 37 RV32I instructions. *(Completed: 5/5 Formal Suites PASSED, 276 Proven Assertions, 32 Reachability Witness Covers)*
 5. **Static Timing Analysis (STA)**: Evaluating the critical path delay and theoretical maximum frequency capabilities of the datapath.
 6. **ISA Extensions & System Features**: Adding support for Multiplication/Division (`M` extension), Floating Point (`F` extension), Control and Status Registers (CSRs), exceptions, and hardware interrupts.
 7. **Real Memory Interfacing & MMIO**: Transitioning from simulated backdoor ROMs to physical, synchronous RAM and memory-mapped peripherals.

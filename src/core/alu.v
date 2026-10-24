@@ -21,7 +21,7 @@ module alu(
             end
             `ALU_SUB: begin             // SUB
                 {carry_out, alu_result} = {1'b0, a} - {1'b0, b};
-                overflow = (a[31] ^ ~b[31] ^ alu_result[31]) ^ carry_out;
+                overflow = (a[31] ^ b[31] ^ alu_result[31]) ^ carry_out;
             end
             `ALU_AND: alu_result = a & b; // AND
             `ALU_OR: alu_result = a | b; // OR

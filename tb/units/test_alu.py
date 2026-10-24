@@ -56,7 +56,10 @@ async def test_alu_add(dut):
         dut.a.value = a
         dut.b.value = b
         await Timer(1, unit="ns")
-        assert int(dut.alu_result.value) == to_unsigned(a + b)
+        res = to_unsigned(a + b)
+        assert int(dut.alu_result.value) == res
+        expected_ovf = 1 if (((a >> 31) == (b >> 31)) and (((res >> 31) & 1) != (a >> 31))) else 0
+        assert int(dut.overflow.value) == expected_ovf
 
 @cocotb.test()
 async def test_alu_sub(dut):
@@ -67,9 +70,12 @@ async def test_alu_sub(dut):
         dut.a.value = a
         dut.b.value = b
         await Timer(1, unit="ns")
-        assert int(dut.alu_result.value) == to_unsigned(a - b)
+        res = to_unsigned(a - b)
+        assert int(dut.alu_result.value) == res
+        expected_ovf = 1 if (((a >> 31) != (b >> 31)) and (((res >> 31) & 1) != (a >> 31))) else 0
+        assert int(dut.overflow.value) == expected_ovf
         # Check Zero Flag
-        if to_unsigned(a - b) == 0:
+        if res == 0:
             assert int(dut.zero.value) == 1
         else:
             assert int(dut.zero.value) == 0

@@ -1,0 +1,27 @@
+[tasks]
+bmc
+prove
+cover
+
+[options]
+bmc: mode bmc
+bmc: depth 2
+prove: mode prove
+prove: depth 2
+cover: mode cover
+cover: depth 2
+
+[engines]
+smtbmc z3
+
+[script]
+read_verilog -I include core/main_decoder.v
+read_verilog -I include core/immediate_gen.v
+read_verilog -formal -I include core/formal_decoder.v
+prep -top formal_decoder
+
+[files]
+include/rv32i_defs.vh src/include/rv32i_defs.vh
+core/main_decoder.v src/core/main_decoder.v
+core/immediate_gen.v src/core/immediate_gen.v
+core/formal_decoder.v formal/properties/formal_decoder.v
